@@ -1,0 +1,10 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Flutter/Dart toolchain
+.flutter
+.dart-tool/
+.config/
