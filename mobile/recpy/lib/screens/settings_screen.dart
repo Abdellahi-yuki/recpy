@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:recpy/services/storage_service.dart';
+import 'dart:io';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -60,7 +61,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               Icon(Icons.check_circle, color: Colors.greenAccent),
               SizedBox(width: 8),
-              Text('Settings saved successfully'),
+              Text(
+                'Settings saved successfully',
+                style: TextStyle(color: Colors.white),
+              ),
             ],
           ),
           backgroundColor: const Color(0xFF1E293B),
@@ -76,9 +80,66 @@ class _SettingsScreenState extends State<SettingsScreen> {
       dialogTitle: 'Select Download Folder',
     );
     if (selectedDirectory != null) {
+      // Reject content:// URIs — they are SAF URIs, not real paths.
+      // file_picker on Android < 13 may return one; we need a real path.
+      if (selectedDirectory.startsWith('content://')) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text(
+                'Please type the folder path manually (e.g. /storage/emulated/0/Downloads)',
+              ),
+              backgroundColor: Colors.orange[800],
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
+        return;
+      }
+
+      // Verify the directory actually exists / is writable before saving
+      final dir = Directory(selectedDirectory);
+      final exists = await dir.exists();
+      if (!exists) {
+        try {
+          await dir.create(recursive: true);
+        } catch (_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Cannot access "$selectedDirectory". Try a different folder.'),
+                backgroundColor: Colors.redAccent,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            );
+          }
+          return;
+        }
+      }
+
       setState(() {
         _downloadPathController.text = selectedDirectory;
       });
+      // Save immediately — don't make the user remember to hit Save
+      await StorageService.setDownloadPath(selectedDirectory);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.greenAccent),
+                const SizedBox(width: 8),
+                Expanded(child: Text('Download folder set to $selectedDirectory')),
+              ],
+            ),
+            backgroundColor: const Color(0xFF1E293B),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
     }
   }
 

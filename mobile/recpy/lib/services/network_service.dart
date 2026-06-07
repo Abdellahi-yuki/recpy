@@ -378,14 +378,25 @@ class NetworkService {
   static Future<Directory> _getDownloadDirectory() async {
     final savedPath = await StorageService.getDownloadPath();
     final savedDir = Directory(savedPath);
-    if (await savedDir.exists()) {
-      return savedDir;
+
+    // Reject content:// URIs that may have slipped through on older Android
+    if (savedPath.startsWith('content://')) {
+      return await getApplicationDocumentsDirectory();
     }
-    // Fallback: try to create it; if not possible, use app documents dir
+
+    // Try to use the saved path — verify it's actually writable
     try {
-      await savedDir.create(recursive: true);
+      if (!await savedDir.exists()) {
+        await savedDir.create(recursive: true);
+      }
+      // Quick write test
+      final testFile = File(p.join(savedDir.path, '.recpy_test'));
+      await testFile.writeAsBytes([]);
+      await testFile.delete();
       return savedDir;
     } catch (_) {
+      // Saved path is not writable (permission denied, unmounted, etc.)
+      // Fall back to app documents directory
       return await getApplicationDocumentsDirectory();
     }
   }

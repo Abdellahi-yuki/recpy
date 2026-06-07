@@ -73,6 +73,30 @@ class _SendScreenState extends State<SendScreen> {
     );
   }
 
+  /// Maps raw socket/OS exceptions to human-readable messages.
+  String _friendlyError(Object e) {
+    final raw = e.toString().toLowerCase();
+    if (raw.contains('errno = 111') || raw.contains('connection refused')) {
+      return 'Connection refused — verify the receiver IP and port number.';
+    }
+    if (raw.contains('errno = 110') || raw.contains('timed out') || raw.contains('connection timed out')) {
+      return 'Connection timed out — make sure the receiver is reachable on the same network.';
+    }
+    if (raw.contains('errno = 113') || raw.contains('no route to host')) {
+      return 'No route to host — check that both devices are on the same Wi-Fi network.';
+    }
+    if (raw.contains('errno = 101') || raw.contains('network is unreachable')) {
+      return 'Network unreachable — check your Wi-Fi connection.';
+    }
+    if (raw.contains('errno = 104') || raw.contains('connection reset')) {
+      return 'Connection was reset by the receiver. Try again.';
+    }
+    if (raw.contains('failed host lookup') || raw.contains('nodename nor servname')) {
+      return 'Could not resolve host — check the IP address in Settings.';
+    }
+    return 'Send failed: $e';
+  }
+
   Future<void> _handleSendText() async {
     final text = _textController.text.trim();
     if (text.isEmpty) {
@@ -111,9 +135,10 @@ class _SendScreenState extends State<SendScreen> {
       _textController.clear();
       _showSnackbar("Text sent successfully!", Colors.greenAccent);
     } catch (e) {
-      _showSnackbar("Failed to send text: $e", Colors.redAccent);
+      final msg = _friendlyError(e);
+      _showSnackbar(msg, Colors.redAccent);
       setState(() {
-        _sendingStatus = "Error: $e";
+        _sendingStatus = msg;
       });
     } finally {
       Future.delayed(const Duration(seconds: 3), () {
@@ -168,9 +193,10 @@ class _SendScreenState extends State<SendScreen> {
       _clearFiles();
       _showSnackbar("All files sent successfully!", Colors.greenAccent);
     } catch (e) {
-      _showSnackbar("Failed to send files: $e", Colors.redAccent);
+      final msg = _friendlyError(e);
+      _showSnackbar(msg, Colors.redAccent);
       setState(() {
-        _sendingStatus = "Error: $e";
+        _sendingStatus = msg;
       });
     } finally {
       Future.delayed(const Duration(seconds: 3), () {

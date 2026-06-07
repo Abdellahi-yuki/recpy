@@ -4,6 +4,7 @@ import 'package:recpy/screens/receive_screen.dart';
 import 'package:recpy/screens/settings_screen.dart';
 import 'package:recpy/services/network_service.dart';
 import 'package:recpy/services/storage_service.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 void main() {
   runApp(const MyApp());
@@ -68,8 +69,43 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  Future<bool> _requestStoragePermission() async {
+    // Android 11+ (API 30+): need MANAGE_EXTERNAL_STORAGE for arbitrary paths
+    if (await Permission.manageExternalStorage.isGranted) return true;
+    final status = await Permission.manageExternalStorage.request();
+    if (status.isGranted) return true;
+
+    // Android 9/10 fallback
+    if (await Permission.storage.isGranted) return true;
+    final legacyStatus = await Permission.storage.request();
+    return legacyStatus.isGranted;
+  }
+
   Future<void> _toggleServer(bool start) async {
     if (start) {
+      // Request storage permission before binding the server so received
+      // files can actually be written to the user-selected directory.
+      final storageGranted = await _requestStoragePermission();
+      if (!storageGranted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text(
+                'Storage permission is required to save received files.',
+              ),
+              backgroundColor: Colors.orange[800],
+              behavior: SnackBarBehavior.floating,
+              action: SnackBarAction(
+                label: 'Settings',
+                onPressed: openAppSettings,
+                textColor: Colors.white,
+              ),
+            ),
+          );
+        }
+        // Continue anyway — files will fall back to app documents dir
+      }
+
       final port = await StorageService.getListenPort();
       await _networkService.startServer(
         port: port,
