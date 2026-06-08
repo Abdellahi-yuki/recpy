@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:recpy/services/storage_service.dart';
+import 'package:recpy/services/native_file_picker.dart';
 
 class NetworkService {
   ServerSocket? _serverSocket;
@@ -59,20 +60,19 @@ class NetworkService {
     }
   }
 
-  // Send Files
+  // Send Files — streams directly without loading the whole file into memory
   static Future<void> sendFiles({
     required String ip,
     required int port,
-    required List<File> files,
+    required List<({String name, int size, Stream<List<int>> stream})> files,
     required Function(String filename, double progress) onProgress,
   }) async {
     Socket? socket;
     try {
       socket = await Socket.connect(ip, port, timeout: const Duration(seconds: 15));
-      
+
       final magic = utf8.encode('RECPY');
       final type = [2];
-      
       final countBytes = Uint8List(4);
       ByteData.view(countBytes.buffer).setUint32(0, files.length, Endian.big);
 
@@ -81,33 +81,71 @@ class NetworkService {
       socket.add(countBytes);
       await socket.flush();
 
-      for (int i = 0; i < files.length; i++) {
-        final file = files[i];
-        final filename = p.basename(file.path);
-        final filenameBytes = utf8.encode(filename);
+      for (final file in files) {
+        final filenameBytes = utf8.encode(file.name);
         final nameLenBytes = Uint8List(4);
         ByteData.view(nameLenBytes.buffer).setUint32(0, filenameBytes.length, Endian.big);
 
-        final fileBytes = await file.readAsBytes();
         final fileLenBytes = Uint8List(8);
-        ByteData.view(fileLenBytes.buffer).setUint64(0, fileBytes.length, Endian.big);
+        ByteData.view(fileLenBytes.buffer).setUint64(0, file.size, Endian.big);
 
         socket.add(nameLenBytes);
         socket.add(filenameBytes);
         socket.add(fileLenBytes);
+        await socket.flush();
 
-        // Send file content in chunks to show progress
-        const int chunkSize = 65536; // 64KB
         int sentBytes = 0;
-        while (sentBytes < fileBytes.length) {
-          int end = sentBytes + chunkSize;
-          if (end > fileBytes.length) {
-            end = fileBytes.length;
-          }
-          socket.add(fileBytes.sublist(sentBytes, end));
+        await for (final chunk in file.stream) {
+          socket.add(chunk);
           await socket.flush();
-          sentBytes = end;
-          onProgress(filename, sentBytes / fileBytes.length);
+          sentBytes += chunk.length;
+          onProgress(file.name, sentBytes / file.size);
+        }
+      }
+    } finally {
+      await socket?.close();
+    }
+  }
+
+  // Send Files via native ContentResolver stream — no temp file copy.
+  static Future<void> sendFilesNative({
+    required String ip,
+    required int port,
+    required List<NativeFile> files,
+    required Function(String filename, double progress) onProgress,
+  }) async {
+    Socket? socket;
+    try {
+      socket = await Socket.connect(ip, port, timeout: const Duration(seconds: 15));
+
+      // Protocol header
+      socket.add(utf8.encode('RECPY'));
+      socket.add([2]); // type = files
+      final countBytes = Uint8List(4);
+      ByteData.view(countBytes.buffer).setUint32(0, files.length, Endian.big);
+      socket.add(countBytes);
+      await socket.flush();
+
+      for (final file in files) {
+        // File header
+        final filenameBytes = utf8.encode(file.name);
+        final nameLenBytes = Uint8List(4);
+        ByteData.view(nameLenBytes.buffer).setUint32(0, filenameBytes.length, Endian.big);
+        final fileLenBytes = Uint8List(8);
+        ByteData.view(fileLenBytes.buffer).setUint64(0, file.size, Endian.big);
+
+        socket.add(nameLenBytes);
+        socket.add(filenameBytes);
+        socket.add(fileLenBytes);
+        await socket.flush();
+
+        // Stream file bytes directly from ContentResolver — no copy ever
+        int sentBytes = 0;
+        await for (final Uint8List chunk in NativeFilePicker.openReadStream(file)) {
+          socket.add(chunk);
+          await socket.flush();
+          sentBytes += chunk.length;
+          onProgress(file.name, file.size > 0 ? sentBytes / file.size : 1.0);
         }
       }
     } finally {

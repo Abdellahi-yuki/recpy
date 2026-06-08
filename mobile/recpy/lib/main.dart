@@ -4,10 +4,34 @@ import 'package:recpy/screens/receive_screen.dart';
 import 'package:recpy/screens/settings_screen.dart';
 import 'package:recpy/services/network_service.dart';
 import 'package:recpy/services/storage_service.dart';
+import 'package:recpy/services/foreground_service_manager.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  _initForegroundTask();
   runApp(const MyApp());
+}
+
+void _initForegroundTask() {
+  FlutterForegroundTask.init(
+    androidNotificationOptions: AndroidNotificationOptions(
+      channelId: 'recpy_receiver',
+      channelName: 'recpy Receiver',
+      channelDescription: 'Keeps recpy listening for incoming transfers.',
+      channelImportance: NotificationChannelImportance.LOW,
+      priority: NotificationPriority.LOW,
+    ),
+    iosNotificationOptions: const IOSNotificationOptions(
+      showNotification: false,
+    ),
+    foregroundTaskOptions: ForegroundTaskOptions(
+      eventAction: ForegroundTaskEventAction.nothing(),
+      autoRunOnBoot: false,
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -59,6 +83,8 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void dispose() {
     _networkService.stopServer((status) {});
+    ForegroundServiceManager.forceStop();
+    WakelockPlus.disable();
     super.dispose();
   }
 
@@ -83,8 +109,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future<void> _toggleServer(bool start) async {
     if (start) {
-      // Request storage permission before binding the server so received
-      // files can actually be written to the user-selected directory.
       final storageGranted = await _requestStoragePermission();
       if (!storageGranted) {
         if (mounted) {
@@ -103,8 +127,20 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
           );
         }
-        // Continue anyway — files will fall back to app documents dir
       }
+
+      // Request foreground-service notification permission (Android 13+)
+      await Permission.notification.request();
+
+      // Start the foreground service so Android won't kill the socket
+      // when the screen turns off or the app is backgrounded.
+      await ForegroundServiceManager.acquire(
+        title: 'recpy is listening',
+        text: 'Waiting for incoming transfers…',
+      );
+
+      // Keep CPU awake during receive
+      await WakelockPlus.enable();
 
       final port = await StorageService.getListenPort();
       await _networkService.startServer(
@@ -174,6 +210,8 @@ class _MyHomePageState extends State<MyHomePage> {
           _activeTransferProgress = 0.0;
         });
       });
+      await ForegroundServiceManager.release();
+      await WakelockPlus.disable();
     }
   }
 
@@ -238,9 +276,9 @@ class _MyHomePageState extends State<MyHomePage> {
               margin: const EdgeInsets.only(right: 15),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.greenAccent.withOpacity(0.1),
+                color: Colors.greenAccent.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.greenAccent.withOpacity(0.3)),
+                border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.3)),
               ),
               child: const Row(
                 children: [
@@ -270,7 +308,7 @@ class _MyHomePageState extends State<MyHomePage> {
           color: const Color(0xFF1E293B),
           border: Border(
             top: BorderSide(
-              color: Colors.white.withOpacity(0.05),
+              color: Colors.white.withValues(alpha: 0.05),
               width: 1,
             ),
           ),

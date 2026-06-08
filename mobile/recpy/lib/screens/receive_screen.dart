@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:io';
 
 class ReceivedItem {
   final String id;
@@ -96,12 +95,12 @@ class ReceiveScreen extends StatelessWidget {
           // Server Control Card
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF1E293B).withOpacity(0.6),
+              color: const Color(0xFF1E293B).withValues(alpha: 0.6),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: isServerRunning
-                    ? Colors.greenAccent.withOpacity(0.2)
-                    : Colors.white.withOpacity(0.08),
+                    ? Colors.greenAccent.withValues(alpha: 0.2)
+                    : Colors.white.withValues(alpha: 0.08),
               ),
             ),
             padding: const EdgeInsets.all(20),
@@ -124,7 +123,7 @@ class ReceiveScreen extends StatelessWidget {
                                 boxShadow: isServerRunning
                                     ? [
                                         BoxShadow(
-                                          color: Colors.greenAccent.withOpacity(0.6),
+                                          color: Colors.greenAccent.withValues(alpha: 0.6),
                                           blurRadius: 8,
                                           spreadRadius: 2,
                                         )
@@ -156,8 +155,8 @@ class ReceiveScreen extends StatelessWidget {
                     Switch(
                       value: isServerRunning,
                       onChanged: onToggleServer,
-                      activeColor: Colors.greenAccent,
-                      activeTrackColor: Colors.greenAccent.withOpacity(0.3),
+                      activeThumbColor: Colors.greenAccent,
+                      activeTrackColor: Colors.greenAccent.withValues(alpha: 0.3),
                     ),
                   ],
                 ),
@@ -185,9 +184,9 @@ class ReceiveScreen extends StatelessWidget {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.06),
+                            color: Colors.white.withValues(alpha: 0.06),
                             borderRadius: BorderRadius.circular(15),
-                            border: Border.all(color: Colors.white.withOpacity(0.1)),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -197,7 +196,7 @@ class ReceiveScreen extends StatelessWidget {
                               Text(
                                 ip,
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.9),
+                                  color: Colors.white.withValues(alpha: 0.9),
                                   fontSize: 13,
                                   fontFamily: 'monospace',
                                 ),
@@ -218,9 +217,9 @@ class ReceiveScreen extends StatelessWidget {
           if (activeTransferInfo.isNotEmpty) ...[
             Container(
               decoration: BoxDecoration(
-                color: const Color(0xFF1E293B).withOpacity(0.8),
+                color: const Color(0xFF1E293B).withValues(alpha: 0.8),
                 borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: Colors.greenAccent.withOpacity(0.2)),
+                border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.2)),
               ),
               padding: const EdgeInsets.all(15),
               child: Column(
@@ -254,7 +253,7 @@ class ReceiveScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(5),
                     child: LinearProgressIndicator(
                       value: activeTransferProgress,
-                      backgroundColor: Colors.white.withOpacity(0.1),
+                      backgroundColor: Colors.white.withValues(alpha: 0.1),
                       valueColor: const AlwaysStoppedAnimation<Color>(Colors.greenAccent),
                       minHeight: 6,
                     ),
@@ -299,7 +298,7 @@ class ReceiveScreen extends StatelessWidget {
                         Icon(
                           Icons.inbox_outlined,
                           size: 48,
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withValues(alpha: 0.2),
                         ),
                         const SizedBox(height: 10),
                         Text(
@@ -318,9 +317,9 @@ class ReceiveScreen extends StatelessWidget {
 
                       return Container(
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1E293B).withOpacity(0.5),
+                          color: const Color(0xFF1E293B).withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(15),
-                          border: Border.all(color: Colors.white.withOpacity(0.06)),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
                         ),
                         padding: const EdgeInsets.all(15),
                         child: Column(

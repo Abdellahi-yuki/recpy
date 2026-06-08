@@ -192,9 +192,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // Glassmorphic Card — Sender Settings
             Container(
               decoration: BoxDecoration(
-                color: const Color(0xFF1E293B).withOpacity(0.6),
+                color: const Color(0xFF1E293B).withValues(alpha: 0.6),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.white.withOpacity(0.08)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
               ),
               padding: const EdgeInsets.all(20),
               child: Column(
@@ -220,7 +220,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       prefixIcon: const Icon(Icons.computer, color: Colors.grey),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -262,7 +262,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       prefixIcon: const Icon(Icons.settings_ethernet, color: Colors.grey),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -288,9 +288,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // Receiver listener card
             Container(
               decoration: BoxDecoration(
-                color: const Color(0xFF1E293B).withOpacity(0.6),
+                color: const Color(0xFF1E293B).withValues(alpha: 0.6),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.white.withOpacity(0.08)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
               ),
               padding: const EdgeInsets.all(20),
               child: Column(
@@ -317,7 +317,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       prefixIcon: const Icon(Icons.hearing, color: Colors.grey),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -343,9 +343,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // ── Storage card ─────────────────────────────────────────────
             Container(
               decoration: BoxDecoration(
-                color: const Color(0xFF1E293B).withOpacity(0.6),
+                color: const Color(0xFF1E293B).withValues(alpha: 0.6),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.white.withOpacity(0.08)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
               ),
               padding: const EdgeInsets.all(20),
               child: Column(
@@ -357,7 +357,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Container(
                         padding: const EdgeInsets.all(7),
                         decoration: BoxDecoration(
-                          color: Colors.tealAccent.withOpacity(0.1),
+                          color: Colors.tealAccent.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(
@@ -402,7 +402,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       prefixIcon: const Icon(Icons.folder_rounded, color: Colors.grey),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -437,7 +437,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           label: const Text('Browse', style: TextStyle(fontSize: 13)),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.tealAccent,
-                            side: BorderSide(color: Colors.tealAccent.withOpacity(0.4)),
+                            side: BorderSide(color: Colors.tealAccent.withValues(alpha: 0.4)),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
@@ -453,7 +453,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         label: const Text('Reset', style: TextStyle(fontSize: 13)),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.grey[400],
-                          side: BorderSide(color: Colors.white.withOpacity(0.15)),
+                          side: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
@@ -468,7 +468,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.04),
+                      color: Colors.white.withValues(alpha: 0.04),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
