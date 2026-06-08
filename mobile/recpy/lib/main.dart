@@ -3,6 +3,7 @@ import 'package:recpy/screens/send_screen.dart';
 import 'package:recpy/screens/receive_screen.dart';
 import 'package:recpy/screens/settings_screen.dart';
 import 'package:recpy/services/network_service.dart';
+import 'package:recpy/services/recpy_service_channel.dart';
 import 'package:recpy/services/storage_service.dart';
 import 'package:recpy/services/foreground_service_manager.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -64,7 +65,6 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int _currentIndex = 0;
-  final NetworkService _networkService = NetworkService();
   
   bool _isServerRunning = false;
   String _serverStatus = "Stopped";
@@ -82,7 +82,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   void dispose() {
-    _networkService.stopServer((status) {});
+    RecpyServiceChannel.stopReceiver();
     ForegroundServiceManager.forceStop();
     WakelockPlus.disable();
     super.dispose();
@@ -94,7 +94,6 @@ class _MyHomePageState extends State<MyHomePage> {
       _localIps = ips;
     });
   }
-
   Future<bool> _requestStoragePermission() async {
     // Android 11+ (API 30+): need MANAGE_EXTERNAL_STORAGE for arbitrary paths
     if (await Permission.manageExternalStorage.isGranted) return true;
@@ -129,89 +128,73 @@ class _MyHomePageState extends State<MyHomePage> {
         }
       }
 
-      // Request foreground-service notification permission (Android 13+)
       await Permission.notification.request();
-
-      // Start the foreground service so Android won't kill the socket
-      // when the screen turns off or the app is backgrounded.
-      await ForegroundServiceManager.acquire(
-        title: 'recpy is listening',
-        text: 'Waiting for incoming transfers…',
-      );
-
-      // Keep CPU awake during receive
       await WakelockPlus.enable();
 
       final port = await StorageService.getListenPort();
-      await _networkService.startServer(
+      await RecpyServiceChannel.startReceiver(
         port: port,
         onTextReceived: (clientIp, text) {
+          if (!mounted) return;
           setState(() {
-            _receivedItems.insert(
-              0,
-              ReceivedItem(
-                id: DateTime.now().millisecondsSinceEpoch.toString(),
-                senderIp: clientIp,
-                type: 'text',
-                textContent: text,
-                timestamp: DateTime.now(),
-              ),
-            );
+            _receivedItems.insert(0, ReceivedItem(
+              id: DateTime.now().millisecondsSinceEpoch.toString(),
+              senderIp: clientIp, type: 'text',
+              textContent: text, timestamp: DateTime.now(),
+            ));
             _activeTransferInfo = "";
             _activeTransferProgress = 0.0;
           });
         },
         onFileReceived: (clientIp, filename, savedPath) {
+          if (!mounted) return;
           setState(() {
-            _receivedItems.insert(
-              0,
-              ReceivedItem(
-                id: DateTime.now().millisecondsSinceEpoch.toString(),
-                senderIp: clientIp,
-                type: 'file',
-                filename: filename,
-                savedPath: savedPath,
-                timestamp: DateTime.now(),
-              ),
-            );
+            _receivedItems.insert(0, ReceivedItem(
+              id: DateTime.now().millisecondsSinceEpoch.toString(),
+              senderIp: clientIp, type: 'file',
+              filename: filename, savedPath: savedPath,
+              timestamp: DateTime.now(),
+            ));
             _activeTransferInfo = "";
             _activeTransferProgress = 0.0;
           });
         },
         onTransferProgress: (clientIp, info, progress) {
+          if (!mounted) return;
           setState(() {
             _activeTransferInfo = info;
             _activeTransferProgress = progress;
           });
         },
         onStatusChanged: (status) {
+          if (!mounted) return;
           setState(() {
             _serverStatus = status;
-            _isServerRunning = _networkService.isListening;
+            _isServerRunning = status.startsWith('Listening');
           });
         },
         onError: (error) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(error),
-                backgroundColor: Colors.redAccent,
-              ),
-            );
-          }
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(error), backgroundColor: Colors.redAccent),
+          );
         },
       );
+
+      if (mounted) {
+        setState(() => _isServerRunning = true);
+      }
     } else {
-      _networkService.stopServer((status) {
+      await RecpyServiceChannel.stopReceiver();
+      await WakelockPlus.disable();
+      if (mounted) {
         setState(() {
-          _serverStatus = status;
           _isServerRunning = false;
+          _serverStatus = "Stopped";
           _activeTransferInfo = "";
           _activeTransferProgress = 0.0;
         });
-      });
-      await ForegroundServiceManager.release();
-      await WakelockPlus.disable();
+      }
     }
   }
 

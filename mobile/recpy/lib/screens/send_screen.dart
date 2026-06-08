@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:recpy/services/native_file_picker.dart';
-import 'package:recpy/services/network_service.dart';
+import 'package:recpy/services/recpy_service_channel.dart';
 import 'package:recpy/services/storage_service.dart';
 import 'package:recpy/services/foreground_service_manager.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -14,13 +14,13 @@ class QueuedFile {
   final NativeFile file;
   QueueStatus status;
   double progress;
-  CancelToken cancelToken;
+  bool cancelRequested;
 
   QueuedFile({required this.file})
       : id = '${file.uri}_${DateTime.now().microsecondsSinceEpoch}',
         status = QueueStatus.pending,
         progress = 0,
-        cancelToken = CancelToken();
+        cancelRequested = false;
 }
 
 // ─── History entry ────────────────────────────────────────────────────────────
@@ -62,10 +62,6 @@ class _SendScreenState extends State<SendScreen> {
   @override
   void dispose() {
     _textController.dispose();
-    // Cancel any active sends on dispose
-    for (final item in _queue) {
-      item.cancelToken.cancel();
-    }
     super.dispose();
   }
 
@@ -112,23 +108,23 @@ class _SendScreenState extends State<SendScreen> {
 
     try {
       while (true) {
-        // Find next pending item
         final idx = _queue.indexWhere((q) => q.status == QueueStatus.pending);
-        if (idx == -1) break; // nothing left
+        if (idx == -1) break;
 
         final item = _queue[idx];
-        item.cancelToken = CancelToken(); // fresh token for this attempt
+        item.cancelRequested = false;
         setState(() => item.status = QueueStatus.sending);
 
-        final ip = await StorageService.getReceiverIp();
+        final ip   = await StorageService.getReceiverIp();
         final port = await StorageService.getReceiverPort();
 
         try {
-          final completed = await NetworkService.sendSingleFileNative(
+          final completed = await RecpyServiceChannel.sendFile(
             ip: ip,
             port: port,
-            file: item.file,
-            cancelToken: item.cancelToken,
+            uri: item.file.uri,
+            name: item.file.name,
+            size: item.file.size,
             onProgress: (progress) {
               if (mounted) setState(() => item.progress = progress);
             },
@@ -136,19 +132,15 @@ class _SendScreenState extends State<SendScreen> {
 
           if (mounted) {
             setState(() {
-              item.status =
-                  completed ? QueueStatus.done : QueueStatus.cancelled;
+              item.status = completed ? QueueStatus.done : QueueStatus.cancelled;
               if (completed) item.progress = 1.0;
             });
             if (completed) {
-              _history.insert(
-                0,
-                HistoryEntry(
-                  type: HistoryType.fileSent,
-                  label: item.file.name,
-                  time: DateTime.now(),
-                ),
-              );
+              _history.insert(0, HistoryEntry(
+                type: HistoryType.fileSent,
+                label: item.file.name,
+                time: DateTime.now(),
+              ));
             }
           }
         } catch (e) {
@@ -165,11 +157,10 @@ class _SendScreenState extends State<SendScreen> {
     }
   }
 
-  // Cancel a specific item in the queue
   void _cancelItem(QueuedFile item) {
     if (item.status == QueueStatus.sending) {
-      item.cancelToken.cancel();
-      // The queue loop will mark it cancelled and move on
+      item.cancelRequested = true;
+      RecpyServiceChannel.cancelSend();
     } else if (item.status == QueueStatus.pending) {
       setState(() => item.status = QueueStatus.cancelled);
     }
@@ -209,20 +200,14 @@ class _SendScreenState extends State<SendScreen> {
     await ForegroundServiceManager.acquire(
         title: 'recpy is sending', text: 'Sending text…');
     try {
-      final ip = await StorageService.getReceiverIp();
+      final ip   = await StorageService.getReceiverIp();
       final port = await StorageService.getReceiverPort();
-      await NetworkService.sendText(
-        ip: ip, port: port, text: text,
-        onProgress: (_) {},
-      );
-      _history.insert(
-        0,
-        HistoryEntry(
-          type: HistoryType.textSent,
-          label: text.length > 80 ? '${text.substring(0, 80)}…' : text,
-          time: DateTime.now(),
-        ),
-      );
+      await RecpyServiceChannel.sendText(ip: ip, port: port, text: text);
+      _history.insert(0, HistoryEntry(
+        type: HistoryType.textSent,
+        label: text.length > 80 ? '${text.substring(0, 80)}…' : text,
+        time: DateTime.now(),
+      ));
       _textController.clear();
       _showSnackbar('Text sent successfully!', Colors.greenAccent);
     } catch (e) {
