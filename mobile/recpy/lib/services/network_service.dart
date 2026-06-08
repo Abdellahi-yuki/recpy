@@ -7,6 +7,12 @@ import 'package:path/path.dart' as p;
 import 'package:recpy/services/storage_service.dart';
 import 'package:recpy/services/native_file_picker.dart';
 
+class CancelToken {
+  bool _cancelled = false;
+  bool get isCancelled => _cancelled;
+  void cancel() => _cancelled = true;
+}
+
 class NetworkService {
   ServerSocket? _serverSocket;
   bool _isListening = false;
@@ -107,47 +113,46 @@ class NetworkService {
     }
   }
 
-  // Send Files via native ContentResolver stream — no temp file copy.
-  static Future<void> sendFilesNative({
+  // Send a single file via native ContentResolver stream.
+  // Returns false if cancelled via the token.
+  static Future<bool> sendSingleFileNative({
     required String ip,
     required int port,
-    required List<NativeFile> files,
-    required Function(String filename, double progress) onProgress,
+    required NativeFile file,
+    required Function(double progress) onProgress,
+    required CancelToken cancelToken,
   }) async {
     Socket? socket;
     try {
       socket = await Socket.connect(ip, port, timeout: const Duration(seconds: 15));
 
-      // Protocol header
+      // Full protocol wrapper for a single-file transfer
       socket.add(utf8.encode('RECPY'));
       socket.add([2]); // type = files
       final countBytes = Uint8List(4);
-      ByteData.view(countBytes.buffer).setUint32(0, files.length, Endian.big);
+      ByteData.view(countBytes.buffer).setUint32(0, 1, Endian.big); // count = 1
       socket.add(countBytes);
+
+      final filenameBytes = utf8.encode(file.name);
+      final nameLenBytes = Uint8List(4);
+      ByteData.view(nameLenBytes.buffer).setUint32(0, filenameBytes.length, Endian.big);
+      final fileLenBytes = Uint8List(8);
+      ByteData.view(fileLenBytes.buffer).setUint64(0, file.size, Endian.big);
+
+      socket.add(nameLenBytes);
+      socket.add(filenameBytes);
+      socket.add(fileLenBytes);
       await socket.flush();
 
-      for (final file in files) {
-        // File header
-        final filenameBytes = utf8.encode(file.name);
-        final nameLenBytes = Uint8List(4);
-        ByteData.view(nameLenBytes.buffer).setUint32(0, filenameBytes.length, Endian.big);
-        final fileLenBytes = Uint8List(8);
-        ByteData.view(fileLenBytes.buffer).setUint64(0, file.size, Endian.big);
-
-        socket.add(nameLenBytes);
-        socket.add(filenameBytes);
-        socket.add(fileLenBytes);
+      int sentBytes = 0;
+      await for (final Uint8List chunk in NativeFilePicker.openReadStream(file)) {
+        if (cancelToken.isCancelled) return false;
+        socket.add(chunk);
         await socket.flush();
-
-        // Stream file bytes directly from ContentResolver — no copy ever
-        int sentBytes = 0;
-        await for (final Uint8List chunk in NativeFilePicker.openReadStream(file)) {
-          socket.add(chunk);
-          await socket.flush();
-          sentBytes += chunk.length;
-          onProgress(file.name, file.size > 0 ? sentBytes / file.size : 1.0);
-        }
+        sentBytes += chunk.length;
+        onProgress(file.size > 0 ? sentBytes / file.size : 1.0);
       }
+      return true;
     } finally {
       await socket?.close();
     }
